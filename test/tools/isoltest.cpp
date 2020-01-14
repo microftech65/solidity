@@ -18,6 +18,7 @@
 #include <libsolutil/CommonIO.h>
 #include <libsolutil/AnsiColorized.h>
 
+#include <memory>
 #include <test/Common.h>
 #include <test/tools/IsolTestOptions.h>
 #include <test/libsolidity/AnalysisFramework.h>
@@ -401,20 +402,26 @@ int main(int argc, char const *argv[])
 {
 	setupTerminal();
 
-	solidity::test::IsolTestOptions options(&TestTool::editor);
+	{
+		using IOptions = solidity::test::IsolTestOptions;
+		auto options = std::make_unique<IOptions>(&TestTool::editor);
 
-	try
-	{
-		if (options.parse(argc, argv))
-			options.validate();
-		else
+		try
+		{
+			if (!options->parse(argc, argv))
+				return -1;
+
+			options->validate();
+			solidity::test::CommonOptions::setSingleton(std::move(options));
+		}
+		catch (std::exception const& _exception)
+		{
+			cerr << _exception.what() << endl;
 			return 1;
+		}
 	}
-	catch (std::exception const& _exception)
-	{
-		cerr << _exception.what() << endl;
-		return 1;
-	}
+
+	auto& options = dynamic_cast<solidity::test::IsolTestOptions const&>(solidity::test::CommonOptions::get());
 
 	bool disableSemantics = !solidity::test::EVMHost::getVM(options.evmonePath.string());
 	if (disableSemantics)
